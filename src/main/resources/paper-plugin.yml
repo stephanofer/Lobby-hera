@@ -1,0 +1,23 @@
+name: Lobby-hera
+version: '${version}'
+
+main: com.stephanofer.lobbyHera.LobbyHera
+api-version: '26.1.2'
+load: POSTWORLD
+
+authors: [stephanofer]
+website: stephanofer.com
+
+permissions:
+  lobbyhera.lobby.set:
+    description: Permite setear la ubicación global del lobby.
+    default: op
+  lobbyhera.lobby.use:
+    description: Permite usar el comando /lobby.
+    default: true
+  lobbyhera.staffmode:
+    description: Permite activar/desactivar staff mode propio.
+    default: op
+  lobbyhera.staffmode.others:
+    description: Permite activar/desactivar staff mode de otros.
+    default: op
