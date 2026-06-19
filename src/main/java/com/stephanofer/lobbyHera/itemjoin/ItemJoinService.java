@@ -1,10 +1,15 @@
 package com.stephanofer.lobbyHera.itemjoin;
 
-import net.kyori.adventure.text.minimessage.MiniMessage;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
-import net.kyori.adventure.text.format.TextDecoration;
+import com.stephanofer.lobbyHera.config.PluginConfigService;
+import com.stephanofer.lobbyHera.message.LocalizationService;
+import com.stephanofer.lobbyHera.message.MessageService;
+import dev.dejvokep.boostedyaml.block.implementation.Section;
 import io.papermc.paper.registry.RegistryAccess;
 import io.papermc.paper.registry.RegistryKey;
+import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -13,8 +18,6 @@ import org.bukkit.Sound;
 import org.bukkit.SoundCategory;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeModifier;
-import org.bukkit.configuration.ConfigurationSection;
-import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.EquipmentSlotGroup;
@@ -35,7 +38,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
@@ -45,7 +47,6 @@ import java.util.regex.Pattern;
 
 public final class ItemJoinService {
 
-    private static final String SETTINGS_SECTION = "settings";
     private static final MiniMessage MINI = MiniMessage.miniMessage();
     private static final PlainTextComponentSerializer PLAIN = PlainTextComponentSerializer.plainText();
     private static final Pattern ATTRIBUTE_ENTRY = Pattern.compile("\\{([^}]+)}");
@@ -71,6 +72,9 @@ public final class ItemJoinService {
     );
 
     private final JavaPlugin plugin;
+    private final PluginConfigService configService;
+    private final LocalizationService localizationService;
+    private final MessageService messageService;
     private final NamespacedKey customItemKey;
 
     private final Map<String, ItemDefinition> itemsById = new HashMap<>();
@@ -84,8 +88,11 @@ public final class ItemJoinService {
     private boolean clearCooldownsOnQuit;
     private int forcedJoinHeldSlot;
 
-    public ItemJoinService(JavaPlugin plugin) {
+    public ItemJoinService(JavaPlugin plugin, PluginConfigService configService, LocalizationService localizationService, MessageService messageService) {
         this.plugin = plugin;
+        this.configService = configService;
+        this.localizationService = localizationService;
+        this.messageService = messageService;
         this.customItemKey = new NamespacedKey(plugin, "itemjoin-id");
 
         for (TriggerType triggerType : TriggerType.values()) {
@@ -98,31 +105,27 @@ public final class ItemJoinService {
         this.cooldowns.clear();
         this.itemsByTrigger.values().forEach(List::clear);
 
-        this.plugin.reloadConfig();
-        FileConfiguration config = this.plugin.getConfig();
+        PluginConfigService.ConfigSnapshot snapshot = this.configService.snapshot();
+        this.blockAllItemDrops = snapshot.blockAllItemDrops();
+        this.blockManagedItemDrops = snapshot.blockManagedItemDrops();
+        this.lockManagedItemsInInventory = snapshot.lockManagedItemsInInventory();
+        this.clearCooldownsOnQuit = snapshot.clearCooldownsOnQuit();
+        this.forcedJoinHeldSlot = snapshot.forcedJoinHeldSlot();
 
-        this.blockAllItemDrops = config.getBoolean(SETTINGS_SECTION + ".block-all-item-drops", false);
-        this.blockManagedItemDrops = config.getBoolean(SETTINGS_SECTION + ".block-managed-item-drops", false);
-        this.lockManagedItemsInInventory = config.getBoolean(SETTINGS_SECTION + ".lock-managed-items-in-inventory", false);
-        this.clearCooldownsOnQuit = config.getBoolean(SETTINGS_SECTION + ".clear-cooldowns-on-quit", false);
-        this.forcedJoinHeldSlot = config.getInt(SETTINGS_SECTION + ".forced-join-held-slot", -1);
-
-        if (this.forcedJoinHeldSlot < -1 || this.forcedJoinHeldSlot > 8) {
-            this.plugin.getLogger().warning("Invalid settings.forced-join-held-slot=" + this.forcedJoinHeldSlot + ". Must be between 0 and 8, or -1 to disable. Falling back to -1.");
-            this.forcedJoinHeldSlot = -1;
+        Section itemRoot = this.configService.items().getSection("items", null);
+        if (itemRoot == null) {
+            this.plugin.getLogger().warning("No items section found in items.yml.");
+            return;
         }
 
         int loaded = 0;
-        for (String key : config.getKeys(false)) {
-            if (key.equalsIgnoreCase(SETTINGS_SECTION)) {
+        for (Object rawKey : itemRoot.getKeys()) {
+            String key = String.valueOf(rawKey);
+            Section section = itemRoot.getSection(key, null);
+            if (section == null) {
                 continue;
             }
 
-            if (!config.isConfigurationSection(key)) {
-                continue;
-            }
-
-            ConfigurationSection section = Objects.requireNonNull(config.getConfigurationSection(key));
             ItemDefinition definition = parseDefinition(key, section);
             if (definition == null) {
                 continue;
@@ -136,11 +139,6 @@ public final class ItemJoinService {
         }
 
         this.plugin.getLogger().info("Loaded " + loaded + " ItemJoin item(s).");
-        this.plugin.getLogger().info("ItemJoin settings -> blockAllDrops=" + this.blockAllItemDrops
-                + ", blockManagedDrops=" + this.blockManagedItemDrops
-                + ", lockManagedInInventory=" + this.lockManagedItemsInInventory
-                + ", clearCooldownsOnQuit=" + this.clearCooldownsOnQuit
-                + ", forcedJoinHeldSlot=" + this.forcedJoinHeldSlot);
     }
 
     public void clearRuntimeState() {
@@ -168,11 +166,9 @@ public final class ItemJoinService {
     }
 
     public boolean toggleStaffBypass(UUID uuid) {
-        if (this.staffBypassUsers.contains(uuid)) {
-            this.staffBypassUsers.remove(uuid);
+        if (this.staffBypassUsers.remove(uuid)) {
             return false;
         }
-
         this.staffBypassUsers.add(uuid);
         return true;
     }
@@ -191,14 +187,25 @@ public final class ItemJoinService {
             return;
         }
 
+        String language = this.localizationService.language(player);
         PlayerInventory inventory = player.getInventory();
         int size = inventory.getSize();
-
         for (ItemDefinition definition : definitions) {
             if (definition.slot() < 0 || definition.slot() >= size) {
                 continue;
             }
-            inventory.setItem(definition.slot(), definition.itemTemplate().clone());
+            inventory.setItem(definition.slot(), definition.itemTemplate(language).clone());
+        }
+    }
+
+    public void refreshManagedItems(Player player) {
+        String language = this.localizationService.language(player);
+        PlayerInventory inventory = player.getInventory();
+        for (int slot = 0; slot < inventory.getSize(); slot++) {
+            ItemDefinition definition = resolveDefinition(inventory.getItem(slot));
+            if (definition != null && definition.slot() == slot) {
+                inventory.setItem(slot, definition.itemTemplate(language).clone());
+            }
         }
     }
 
@@ -209,17 +216,7 @@ public final class ItemJoinService {
     }
 
     public boolean isManagedItem(ItemStack itemStack) {
-        if (itemStack == null || itemStack.getType() == Material.AIR) {
-            return false;
-        }
-
-        ItemMeta meta = itemStack.getItemMeta();
-        if (meta == null) {
-            return false;
-        }
-
-        String itemId = meta.getPersistentDataContainer().get(this.customItemKey, PersistentDataType.STRING);
-        return itemId != null && this.itemsById.containsKey(itemId);
+        return resolveDefinition(itemStack) != null;
     }
 
     public boolean canSelfDrop(ItemStack itemStack) {
@@ -231,20 +228,13 @@ public final class ItemJoinService {
         if (isStaffBypass(player.getUniqueId())) {
             return false;
         }
-
         if (this.blockAllItemDrops) {
             return true;
         }
-
         if (!isManagedItem(itemStack)) {
             return false;
         }
-
-        if (this.blockManagedItemDrops) {
-            return true;
-        }
-
-        return !canSelfDrop(itemStack);
+        return this.blockManagedItemDrops || !canSelfDrop(itemStack);
     }
 
     public boolean shouldLockManagedItemsInInventory(Player player) {
@@ -278,28 +268,25 @@ public final class ItemJoinService {
 
         List<ConfiguredCommand> commands = definition.commands();
         if (definition.commandSequence() == CommandSequence.RANDOM && commands.size() > 1) {
-            ConfiguredCommand selected = commands.get(ThreadLocalRandom.current().nextInt(commands.size()));
-            try {
-                dispatchCommand(player, selected, definition);
-            } catch (Throwable throwable) {
-                this.plugin.getLogger().log(Level.WARNING,
-                        "Failed to execute ItemJoin random command for item '" + definition.id() + "'.", throwable);
-            }
+            dispatchSafely(player, commands.get(ThreadLocalRandom.current().nextInt(commands.size())), definition);
         } else {
             for (ConfiguredCommand command : commands) {
-                try {
-                    dispatchCommand(player, command, definition);
-                } catch (Throwable throwable) {
-                    this.plugin.getLogger().log(Level.WARNING,
-                            "Failed to execute ItemJoin command for item '" + definition.id() + "': " + command.command(), throwable);
-                }
+                dispatchSafely(player, command, definition);
             }
         }
 
         if (definition.commandSound() != null) {
             player.playSound(player.getLocation(), definition.commandSound(), SoundCategory.PLAYERS, 1.0f, 1.0f);
         }
+    }
 
+    private void dispatchSafely(Player player, ConfiguredCommand command, ItemDefinition definition) {
+        try {
+            dispatchCommand(player, command, definition);
+        } catch (Throwable throwable) {
+            this.plugin.getLogger().log(Level.WARNING,
+                    "Failed to execute ItemJoin command for item '" + definition.id() + "': " + command.command(), throwable);
+        }
     }
 
     private boolean canUse(Player player, ItemDefinition definition, long now) {
@@ -327,34 +314,30 @@ public final class ItemJoinService {
             }
             return true;
         }
-
         return false;
     }
 
     private void sendCooldownMessage(Player player, ItemDefinition definition, long now) {
-        if (definition.cooldownMessage().isBlank()) {
-            return;
-        }
-
         long availableAt = this.cooldowns
                 .getOrDefault(player.getUniqueId(), Collections.emptyMap())
                 .getOrDefault(definition.id(), now);
+        long seconds = (long) Math.ceil(Math.max(0L, availableAt - now) / 1000.0D);
+        String language = this.localizationService.language(player);
 
-        long remainingMillis = Math.max(0L, availableAt - now);
-        long seconds = (long) Math.ceil(remainingMillis / 1000.0D);
-
-        String parsed = definition.cooldownMessage()
-                .replace("%item%", definition.placeholderItemName())
-                .replace("%timeleft%", String.valueOf(seconds));
-
-        player.sendMessage(MINI.deserialize(parsed));
+        this.messageService.send(
+                player,
+                definition.cooldownMessageKey(),
+                Placeholder.unparsed("item", definition.placeholderItemName(language)),
+                Placeholder.unparsed("timeleft", String.valueOf(seconds))
+        );
     }
 
     private void dispatchCommand(Player player, ConfiguredCommand command, ItemDefinition definition) {
+        String language = this.localizationService.language(player);
         String parsed = command.command()
                 .replace("%player%", player.getName())
                 .replace("%uuid%", player.getUniqueId().toString())
-                .replace("%item%", definition.placeholderItemName());
+                .replace("%item%", definition.placeholderItemName(language));
 
         switch (command.executor()) {
             case CONSOLE -> this.plugin.getServer().dispatchCommand(this.plugin.getServer().getConsoleSender(), parsed);
@@ -370,25 +353,18 @@ public final class ItemJoinService {
         if (itemStack == null || itemStack.getType() == Material.AIR) {
             return null;
         }
-
         ItemMeta meta = itemStack.getItemMeta();
         if (meta == null) {
             return null;
         }
-
         String itemId = meta.getPersistentDataContainer().get(this.customItemKey, PersistentDataType.STRING);
-        if (itemId == null) {
-            return null;
-        }
-
-        return this.itemsById.get(itemId);
+        return itemId == null ? null : this.itemsById.get(itemId);
     }
 
-    private ItemDefinition parseDefinition(String id, ConfigurationSection section) {
-        String materialName = section.getString("id", "");
-        Material material = Material.matchMaterial(materialName);
+    private ItemDefinition parseDefinition(String id, Section section) {
+        Material material = Material.matchMaterial(section.getString("id", ""));
         if (material == null || material == Material.AIR) {
-            this.plugin.getLogger().warning("Skipping item '" + id + "': invalid material '" + materialName + "'.");
+            this.plugin.getLogger().warning("Skipping item '" + id + "': invalid material.");
             return null;
         }
 
@@ -398,15 +374,57 @@ public final class ItemJoinService {
             return null;
         }
 
+        List<ConfiguredCommand> commands = parseCommands(readStringList(section, "interact"), id);
+        CommandSequence commandSequence = parseCommandSequence(section.getString("commands-sequence", "SEQUENTIAL"));
+        Sound commandSound = parseSound(section.getString("commands-sound", ""));
+        long cooldownMillis = Math.max(0, section.getLong("commands-cooldown", 0L)) * 1000L;
+        String cooldownMessageKey = section.getString("cooldown-message", "item.cooldown");
+        Set<TriggerType> triggers = parseTriggers(readStringList(section, "triggers"), id);
+
+        Map<String, ItemStack> itemTemplates = new HashMap<>();
+        Map<String, String> placeholderNames = new HashMap<>();
+        ParsedFlags flags = null;
+        for (String language : List.of("en", "es")) {
+            BuiltItem builtItem = buildLocalizedItem(id, material, section, language);
+            itemTemplates.put(language, builtItem.itemStack());
+            placeholderNames.put(language, builtItem.placeholderName());
+            flags = builtItem.flags();
+        }
+
+        if (flags == null) {
+            flags = new ParsedFlags(false, false, false);
+        }
+
+        return new ItemDefinition(
+                id,
+                Map.copyOf(itemTemplates),
+                slot,
+                triggers,
+                commands,
+                commandSequence,
+                cooldownMillis,
+                cooldownMessageKey,
+                commandSound,
+                flags.allowSelfDrops(),
+                flags.allowDeathDrops(),
+                flags.creativeBypass(),
+                Map.copyOf(placeholderNames)
+        );
+    }
+
+    private BuiltItem buildLocalizedItem(String id, Material material, Section section, String language) {
         ItemStack itemStack = new ItemStack(material);
         ItemMeta meta = itemStack.getItemMeta();
 
-        String configuredName = section.getString("name", "");
+        String configuredName = section.getString("display." + language + ".name", section.getString("display.en.name", id));
         if (!configuredName.isBlank()) {
             meta.displayName(MINI.deserialize(configuredName).decoration(TextDecoration.ITALIC, false));
         }
 
-        List<String> lore = readStringList(section, "lore");
+        List<String> lore = readStringList(section, "display." + language + ".lore");
+        if (lore.isEmpty()) {
+            lore = readStringList(section, "display.en.lore");
+        }
         if (!lore.isEmpty()) {
             meta.lore(lore.stream()
                     .map(line -> MINI.deserialize(line).decoration(TextDecoration.ITALIC, false))
@@ -415,41 +433,12 @@ public final class ItemJoinService {
 
         parseEnchantments(section.getString("enchantment", ""), meta, id);
         parseAttributes(section.getString("attributes", ""), meta, id);
-
-        ParsedFlags parsedFlags = parseFlags(section.getString("itemflags", ""), meta);
-
+        ParsedFlags flags = parseFlags(section.getString("itemflags", ""), meta);
         meta.getPersistentDataContainer().set(this.customItemKey, PersistentDataType.STRING, id);
         itemStack.setItemMeta(meta);
 
-        List<ConfiguredCommand> commands = parseCommands(readStringList(section, "interact"), id);
-        CommandSequence commandSequence = parseCommandSequence(section.getString("commands-sequence", "SEQUENTIAL"));
-
-        Sound commandSound = parseSound(section.getString("commands-sound", ""));
-
-        long cooldownMillis = Math.max(0, section.getLong("commands-cooldown", 0L)) * 1000L;
-        String cooldownMessage = section.getString("cooldown-message", "");
-
-        Set<TriggerType> triggers = parseTriggers(readStringList(section, "triggers"), id);
-
-        String placeholderName = configuredName.isBlank()
-                ? id
-                : PLAIN.serialize(MINI.deserialize(configuredName));
-
-        return new ItemDefinition(
-                id,
-                itemStack,
-                slot,
-                triggers,
-                commands,
-                commandSequence,
-                cooldownMillis,
-                cooldownMessage,
-                commandSound,
-                parsedFlags.allowSelfDrops,
-                parsedFlags.allowDeathDrops,
-                parsedFlags.creativeBypass,
-                placeholderName
-        );
+        String placeholderName = configuredName.isBlank() ? id : PLAIN.serialize(MINI.deserialize(configuredName));
+        return new BuiltItem(itemStack, placeholderName, flags);
     }
 
     private void parseEnchantments(String raw, ItemMeta meta, String itemId) {
@@ -457,14 +446,12 @@ public final class ItemJoinService {
             return;
         }
 
-        String[] entries = raw.split(",");
-        for (String entry : entries) {
+        for (String entry : raw.split(",")) {
             String[] split = entry.trim().split(":", 2);
             if (split.length != 2) {
                 continue;
             }
 
-            String name = split[0].trim();
             int level;
             try {
                 level = Integer.parseInt(split[1].trim());
@@ -473,13 +460,11 @@ public final class ItemJoinService {
                 continue;
             }
 
-            Enchantment enchantment = parseEnchantment(name);
-
+            Enchantment enchantment = parseEnchantment(split[0].trim());
             if (enchantment == null) {
                 this.plugin.getLogger().warning("Unknown enchantment in '" + itemId + "': " + split[0]);
                 continue;
             }
-
             meta.addEnchant(enchantment, level, true);
         }
     }
@@ -497,7 +482,6 @@ public final class ItemJoinService {
                 continue;
             }
 
-            String attributeRaw = split[0].trim();
             double value;
             try {
                 value = Double.parseDouble(split[1].trim());
@@ -506,16 +490,14 @@ public final class ItemJoinService {
                 continue;
             }
 
-            Attribute attribute = parseAttribute(attributeRaw);
+            Attribute attribute = parseAttribute(split[0].trim());
             if (attribute == null) {
                 this.plugin.getLogger().warning("Unknown attribute in '" + itemId + "': " + split[0]);
                 continue;
             }
 
-            String attributePath = normalizePathForKey(attributeRaw);
-
             AttributeModifier modifier = new AttributeModifier(
-                    new NamespacedKey(this.plugin, "itemjoin-" + attributePath + "-" + UUID.randomUUID()),
+                    new NamespacedKey(this.plugin, "itemjoin-" + normalizePathForKey(split[0]) + "-" + UUID.randomUUID()),
                     value,
                     AttributeModifier.Operation.ADD_NUMBER,
                     EquipmentSlotGroup.MAINHAND
@@ -534,12 +516,11 @@ public final class ItemJoinService {
         boolean creativeBypass = false;
 
         for (String entry : raw.split(",")) {
-            String token = entry.trim();
-            if (token.isBlank()) {
+            String normalized = normalizeKey(entry.trim());
+            if (normalized.isBlank()) {
                 continue;
             }
 
-            String normalized = normalizeKey(token);
             switch (normalized) {
                 case "UNBREAKABLE" -> meta.setUnbreakable(true);
                 case "HIDE_FLAGS" -> meta.addItemFlags(ItemFlag.values());
@@ -550,15 +531,13 @@ public final class ItemJoinService {
                 case "CREATIVEBYPASS", "CREATIVE_BYPASS" -> creativeBypass = true;
                 default -> {
                     try {
-                        ItemFlag itemFlag = ItemFlag.valueOf(normalized);
-                        meta.addItemFlags(itemFlag);
+                        meta.addItemFlags(ItemFlag.valueOf(normalized));
                     } catch (IllegalArgumentException ignored) {
                         // Unknown custom flag: safely ignored.
                     }
                 }
             }
         }
-
         return new ParsedFlags(allowSelfDrops, allowDeathDrops, creativeBypass);
     }
 
@@ -579,35 +558,22 @@ public final class ItemJoinService {
                 continue;
             }
 
-            CommandExecutorType executorType;
-            String mode = split[0].trim().toLowerCase(Locale.ROOT);
-            if (mode.equals("console")) {
-                executorType = CommandExecutorType.CONSOLE;
-            } else if (mode.equals("player")) {
-                executorType = CommandExecutorType.PLAYER;
-            } else {
-                this.plugin.getLogger().warning("Unsupported interact executor in '" + itemId + "': " + split[0]);
+            CommandExecutorType executorType = switch (split[0].trim().toLowerCase(Locale.ROOT)) {
+                case "console" -> CommandExecutorType.CONSOLE;
+                case "player" -> CommandExecutorType.PLAYER;
+                default -> null;
+            };
+            if (executorType == null || split[1].trim().isBlank()) {
                 continue;
             }
-
-            String command = split[1].trim();
-            if (command.isBlank()) {
-                continue;
-            }
-
-            commands.add(new ConfiguredCommand(executorType, command));
+            commands.add(new ConfiguredCommand(executorType, split[1].trim()));
         }
-
         return List.copyOf(commands);
     }
 
     private CommandSequence parseCommandSequence(String raw) {
-        if (raw == null || raw.isBlank()) {
-            return CommandSequence.SEQUENTIAL;
-        }
-
         try {
-            return CommandSequence.valueOf(normalizeKey(raw));
+            return CommandSequence.valueOf(normalizeKey(raw == null ? "" : raw));
         } catch (IllegalArgumentException ex) {
             return CommandSequence.SEQUENTIAL;
         }
@@ -620,10 +586,6 @@ public final class ItemJoinService {
 
         EnumSet<TriggerType> parsed = EnumSet.noneOf(TriggerType.class);
         for (String raw : rawTriggers) {
-            if (raw == null || raw.isBlank()) {
-                continue;
-            }
-
             TriggerType triggerType = TriggerType.fromConfig(raw);
             if (triggerType == null) {
                 this.plugin.getLogger().warning("Unknown trigger in '" + itemId + "': " + raw + " (ignored)");
@@ -631,12 +593,7 @@ public final class ItemJoinService {
             }
             parsed.add(triggerType);
         }
-
-        if (parsed.isEmpty()) {
-            parsed.add(TriggerType.JOIN);
-        }
-
-        return parsed;
+        return parsed.isEmpty() ? EnumSet.of(TriggerType.JOIN) : parsed;
     }
 
     private Sound parseSound(String raw) {
@@ -654,32 +611,14 @@ public final class ItemJoinService {
             return byKey;
         }
 
-        String rawFieldSource = raw.contains(":") ? raw.substring(raw.indexOf(':') + 1) : raw;
-        String enumLike = normalizeKey(rawFieldSource);
-        try {
-            Object field = Sound.class.getField(enumLike).get(null);
-            if (field instanceof Sound sound) {
-                return sound;
-            }
-        } catch (NoSuchFieldException | IllegalAccessException ignored) {
-            // Ignore enum-like lookup failure and continue with alternate path lookup.
-        }
-
         String path = key.getKey();
-        String alternatePath = path.contains(".")
-                ? path.replace('.', '_')
-                : path.replace('_', '.');
-
+        String alternatePath = path.contains(".") ? path.replace('.', '_') : path.replace('_', '.');
         if (alternatePath.equals(path)) {
             return null;
         }
 
         NamespacedKey alternateKey = NamespacedKey.fromString(key.getNamespace() + ":" + alternatePath);
-        if (alternateKey == null) {
-            return null;
-        }
-
-        return RegistryAccess.registryAccess().getRegistry(RegistryKey.SOUND_EVENT).get(alternateKey);
+        return alternateKey == null ? null : RegistryAccess.registryAccess().getRegistry(RegistryKey.SOUND_EVENT).get(alternateKey);
     }
 
     private Attribute parseAttribute(String raw) {
@@ -700,16 +639,7 @@ public final class ItemJoinService {
                 return Registry.ATTRIBUTE.get(fallback);
             }
         }
-
         return null;
-    }
-
-    private static String normalizePathForKey(String raw) {
-        NamespacedKey key = parseKey(raw, false);
-        if (key == null) {
-            return raw.trim().toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9/._-]", "_");
-        }
-        return key.getKey().replace('.', '_');
     }
 
     private Enchantment parseEnchantment(String raw) {
@@ -721,9 +651,7 @@ public final class ItemJoinService {
             }
         }
 
-        String source = raw.contains(":") ? raw.substring(raw.indexOf(':') + 1) : raw;
-        String fieldName = normalizeKey(source);
-
+        String fieldName = normalizeKey(raw.contains(":") ? raw.substring(raw.indexOf(':') + 1) : raw);
         String aliasPath = LEGACY_ENCHANT_ALIASES.get(fieldName);
         if (aliasPath != null) {
             NamespacedKey aliasKey = NamespacedKey.fromString(NamespacedKey.MINECRAFT + ":" + aliasPath);
@@ -734,16 +662,6 @@ public final class ItemJoinService {
                 }
             }
         }
-
-        try {
-            Object field = Enchantment.class.getField(fieldName).get(null);
-            if (field instanceof Enchantment enchantment) {
-                return enchantment;
-            }
-        } catch (NoSuchFieldException | IllegalAccessException ignored) {
-            // No enum-like field found.
-        }
-
         return null;
     }
 
@@ -751,28 +669,11 @@ public final class ItemJoinService {
         if (raw == null || raw.isBlank()) {
             return null;
         }
-
-        String trimmed = raw.trim().toLowerCase(Locale.ROOT)
-                .replace(' ', '_')
-                .replace('-', '_');
-
-        String namespace;
-        String path;
+        String trimmed = raw.trim().toLowerCase(Locale.ROOT).replace(' ', '_').replace('-', '_');
         int separator = trimmed.indexOf(':');
-        if (separator >= 0) {
-            namespace = trimmed.substring(0, separator);
-            path = trimmed.substring(separator + 1);
-        } else {
-            namespace = NamespacedKey.MINECRAFT;
-            path = trimmed;
-        }
-
-        if (namespace.isBlank() || path.isBlank()) {
-            return null;
-        }
-
-        path = path.replace('.', '_');
-        return NamespacedKey.fromString(namespace + ":" + path);
+        String namespace = separator >= 0 ? trimmed.substring(0, separator) : NamespacedKey.MINECRAFT;
+        String path = separator >= 0 ? trimmed.substring(separator + 1) : trimmed;
+        return namespace.isBlank() || path.isBlank() ? null : NamespacedKey.fromString(namespace + ":" + path.replace('.', '_'));
     }
 
     private static NamespacedKey parseKey(String raw, boolean soundPath) {
@@ -780,31 +681,17 @@ public final class ItemJoinService {
             return null;
         }
 
-        String trimmed = raw.trim().toLowerCase(Locale.ROOT)
-                .replace(' ', '_')
-                .replace('-', '_');
-
-        String namespace;
-        String path;
-
+        String trimmed = raw.trim().toLowerCase(Locale.ROOT).replace(' ', '_').replace('-', '_');
         int separator = trimmed.indexOf(':');
-        if (separator >= 0) {
-            namespace = trimmed.substring(0, separator);
-            path = trimmed.substring(separator + 1);
-        } else {
-            namespace = NamespacedKey.MINECRAFT;
-            path = trimmed;
-        }
-
+        String namespace = separator >= 0 ? trimmed.substring(0, separator) : NamespacedKey.MINECRAFT;
+        String path = separator >= 0 ? trimmed.substring(separator + 1) : trimmed;
         if (namespace.isBlank() || path.isBlank()) {
             return null;
         }
 
-        if (soundPath) {
-            if (!path.contains(".")) {
-                path = path.replace('_', '.');
-            }
-        } else {
+        if (soundPath && !path.contains(".")) {
+            path = path.replace('_', '.');
+        } else if (!soundPath) {
             if (path.startsWith("generic.")) {
                 path = path.substring("generic.".length());
             } else if (path.startsWith("generic_")) {
@@ -812,21 +699,29 @@ public final class ItemJoinService {
             }
             path = path.replace('.', '_');
         }
-
         return NamespacedKey.fromString(namespace + ":" + path);
     }
 
+    private static String normalizePathForKey(String raw) {
+        NamespacedKey key = parseKey(raw, false);
+        if (key == null) {
+            return raw.trim().toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9/._-]", "_");
+        }
+        return key.getKey().replace('.', '_');
+    }
+
     private static String normalizeKey(String raw) {
-        return raw.trim()
+        return raw == null ? "" : raw.trim()
                 .replace('-', '_')
                 .replace('.', '_')
                 .replace(' ', '_')
                 .toUpperCase(Locale.ROOT);
     }
 
-    private static List<String> readStringList(ConfigurationSection section, String path) {
-        if (section.isList(path)) {
-            return section.getStringList(path);
+    private static List<String> readStringList(Section section, String path) {
+        List<String> list = section.getStringList(path, null);
+        if (list != null && !list.isEmpty()) {
+            return list;
         }
 
         String raw = section.getString(path, "");
@@ -846,8 +741,7 @@ public final class ItemJoinService {
         WORLD_SWITCH;
 
         public static TriggerType fromConfig(String raw) {
-            String normalized = normalizeKey(raw);
-            return switch (normalized) {
+            return switch (normalizeKey(raw)) {
                 case "JOIN" -> JOIN;
                 case "RESPAWN" -> RESPAWN;
                 case "WORLD_SWITCH", "WORLDSWITCH", "WORLDCHANGE", "WORLD_CHANGE" -> WORLD_SWITCH;
@@ -872,20 +766,30 @@ public final class ItemJoinService {
     private record ParsedFlags(boolean allowSelfDrops, boolean allowDeathDrops, boolean creativeBypass) {
     }
 
+    private record BuiltItem(ItemStack itemStack, String placeholderName, ParsedFlags flags) {
+    }
+
     private record ItemDefinition(
             String id,
-            ItemStack itemTemplate,
+            Map<String, ItemStack> itemTemplates,
             int slot,
             Set<TriggerType> triggers,
             List<ConfiguredCommand> commands,
             CommandSequence commandSequence,
             long cooldownMillis,
-            String cooldownMessage,
+            String cooldownMessageKey,
             Sound commandSound,
             boolean allowSelfDrops,
             boolean allowDeathDrops,
             boolean creativeBypass,
-            String placeholderItemName
+            Map<String, String> placeholderItemNames
     ) {
+        ItemStack itemTemplate(String language) {
+            return this.itemTemplates.getOrDefault(LocalizationService.normalize(language), this.itemTemplates.get("en"));
+        }
+
+        String placeholderItemName(String language) {
+            return this.placeholderItemNames.getOrDefault(LocalizationService.normalize(language), this.placeholderItemNames.getOrDefault("en", this.id));
+        }
     }
 }

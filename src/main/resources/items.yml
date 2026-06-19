@@ -1,0 +1,28 @@
+config-version: 1
+
+items:
+  devine-item:
+    id: DIAMOND_SWORD
+    slot: 0
+    display:
+      en:
+        name: '<gold>Blazefury'
+        lore:
+          - '<gray>A divine sword.'
+          - '<gray>This sword is many millennia old...'
+      es:
+        name: '<gold>Blazefury'
+        lore:
+          - '<gray>Una espada divina.'
+          - '<gray>Esta espada tiene muchos milenios...'
+    interact:
+      - 'console: say You can even execute more than one command!'
+      - 'player: say This is item slot 1.'
+    commands-sound: BLOCK.NOTE_BLOCK.PLING
+    commands-sequence: SEQUENTIAL
+    commands-cooldown: 5
+    cooldown-message: item.cooldown
+    attributes: '{ATTACK_DAMAGE:15.2}, {ATTACK_SPEED:19.0}'
+    enchantment: FIRE_ASPECT:3, DAMAGE_ALL:5, DAMAGE_UNDEAD:5, KNOCKBACK:8
+    itemflags: unbreakable, hide-flags, self-drops, death-drops, CreativeBypass
+    triggers: join, respawn, world-switch

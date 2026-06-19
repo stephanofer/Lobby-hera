@@ -1,45 +1,17 @@
-# ItemJoin-style config (top-level sections are items)
+config-version: 1
 
 settings:
-  # If true, players cannot drop ANY item.
+  default-language: en
   block-all-item-drops: false
-  # If true, managed ItemJoin items cannot be dropped (Q/drop).
   block-managed-item-drops: true
-  # If true, managed items cannot be moved/swapped inside inventory.
   lock-managed-items-in-inventory: true
-  # If true, cooldowns are wiped when player quits (can be exploited by relog).
   clear-cooldowns-on-quit: false
-  # Force selected hotbar slot on player join (0-8). Use -1 to disable.
   forced-join-held-slot: 0
 
-  # Global lobby spawn used by /lobby and player join entrypoint.
-  # Set this with /setlobby.
-  lobby:
-    world: ''
-    x: 0.5
-    y: 64.0
-    z: 0.5
-    yaw: 0.0
-    pitch: 0.0
-
-devine-item:
-  id: DIAMOND_SWORD
-  slot: 0
-  name: '<gold>Blazefury'
-  lore:
-    - '<gray>A devine sword.'
-    - '<gray>This sword is many millennium old...'
-  interact:
-    - 'console: say You can even execute more than one command!'
-    - 'player: say This is item slot 1.'
-  commands-sound: BLOCK.NOTE_BLOCK.PLING
-  commands-sequence: SEQUENTIAL
-  commands-cooldown: 5
-  cooldown-message: '<gray>[<yellow>ItemJoin<gray>] <green>[%item%<green>] <red>is on cooldown for <green>%timeleft%</green> <red>seconds..'
-  attributes: '{ATTACK_DAMAGE:15.2}, {ATTACK_SPEED:19.0}'
-  enchantment: FIRE_ASPECT:3, DAMAGE_ALL:5, DAMAGE_UNDEAD:5, KNOCKBACK:8
-  # Supported custom flags: unbreakable, hide-flags, self-drops, no-self-drops,
-  # death-drops, no-death-drops, CreativeBypass.
-  itemflags: unbreakable, hide-flags, self-drops, death-drops, CreativeBypass
-  # Supported triggers for now: join, respawn, world-switch
-  triggers: join, respawn, world-switch
+lobby:
+  world: ''
+  x: 0.5
+  y: 64.0
+  z: 0.5
+  yaw: 0.0
+  pitch: 0.0

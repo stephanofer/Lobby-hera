@@ -2,11 +2,18 @@ name: Lobby-hera
 version: '${version}'
 
 main: com.stephanofer.lobbyHera.LobbyHera
-api-version: '26.1.2'
+api-version: '26.2'
 load: POSTWORLD
 
 authors: [stephanofer]
 website: stephanofer.com
+
+dependencies:
+  server:
+    NetworkPlayerSettings:
+      load: BEFORE
+      required: true
+      join-classpath: true
 
 permissions:
   lobbyhera.lobby.set:

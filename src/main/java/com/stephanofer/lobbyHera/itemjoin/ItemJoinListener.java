@@ -1,5 +1,8 @@
 package com.stephanofer.lobbyHera.itemjoin;
 
+import com.stephanofer.networkplayersettings.api.SettingKey;
+import com.stephanofer.networkplayersettings.event.PlayerSettingChangeEvent;
+import com.stephanofer.networkplayersettings.event.PlayerSettingsReadyEvent;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
@@ -14,7 +17,6 @@ import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
-import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.event.player.PlayerSwapHandItemsEvent;
@@ -34,10 +36,24 @@ public final class ItemJoinListener implements Listener {
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
-    public void onJoin(PlayerJoinEvent event) {
-        Player player = event.getPlayer();
+    public void onSettingsReady(PlayerSettingsReadyEvent event) {
+        Player player = event.player();
         this.itemJoinService.giveItems(player, ItemJoinService.TriggerType.JOIN);
         this.itemJoinService.applyJoinHeldSlot(player);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onLanguageChange(PlayerSettingChangeEvent event) {
+        if (event.settingKey() != SettingKey.LANGUAGE) {
+            return;
+        }
+
+        Bukkit.getScheduler().runTask(this.plugin, () -> {
+            Player player = Bukkit.getPlayer(event.playerId());
+            if (player != null) {
+                this.itemJoinService.refreshManagedItems(player);
+            }
+        });
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)

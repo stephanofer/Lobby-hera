@@ -1,0 +1,76 @@
+config-version: 3
+
+messages:
+  console-only:
+    en: '<red>This command can only be used by a player.'
+    es: '<red>Este comando solo puede usarlo un jugador.'
+  usage:
+    lobby:
+      en: '<red>Usage: /lobby'
+      es: '<red>Uso: /lobby'
+    set-lobby:
+      en: '<red>Usage: /setlobby'
+      es: '<red>Uso: /setlobby'
+    staffmode-console:
+      en: '<red>Console usage: /staffmode <player>'
+      es: '<red>Uso en consola: /staffmode <jugador>'
+    staffmode:
+      en: '<red>Usage: /staffmode [player]'
+      es: '<red>Uso: /staffmode [jugador]'
+  lobby:
+    not-set:
+      en: '<red>The lobby is not set yet. Use /setlobby.'
+      es: '<red>El lobby todavía no está seteado. Usá /setlobby.'
+    teleport-failed:
+      en: '<red>Could not teleport you to the lobby. Try again.'
+      es: '<red>No se pudo teletransportar al lobby. Intentá de nuevo.'
+    set-failed:
+      en: '<red>Could not save the lobby. Check the world/location.'
+      es: '<red>No se pudo guardar el lobby. Revisá el mundo/ubicación.'
+    set-success:
+      en: '<green>Lobby set successfully at your current position.'
+      es: '<green>Lobby seteado correctamente en tu posición actual.'
+  staffmode:
+    enabled:
+      self:
+        en: '<green>Staff mode enabled. You can now drop/move managed items.'
+        es: '<green>Staff mode activado. Ahora podés dropear/mover items gestionados.'
+      other:
+        en: '<green>Staff mode enabled for <white><player><green>.'
+        es: '<green>Staff mode activado para <white><player><green>.'
+      target:
+        en: '<green>Your staff mode was enabled (ItemJoin bypass).'
+        es: '<green>Se activó tu staff mode (bypass de ItemJoin).'
+    disabled:
+      self:
+        en: '<yellow>Staff mode disabled. ItemJoin restrictions are restored.'
+        es: '<yellow>Staff mode desactivado. Vuelven las restricciones de ItemJoin.'
+      other:
+        en: '<yellow>Staff mode disabled for <white><player><yellow>.'
+        es: '<yellow>Staff mode desactivado para <white><player><yellow>.'
+      target:
+        en: '<yellow>Your staff mode was disabled (restrictions restored).'
+        es: '<yellow>Se desactivó tu staff mode (restricciones restauradas).'
+    no-permission-others:
+      en: '<red>You do not have permission to modify another player.'
+      es: '<red>No tenés permiso para modificar a otro jugador.'
+    target-not-found:
+      en: '<red>Player not found or offline.'
+      es: '<red>Jugador no encontrado o desconectado.'
+  item:
+    cooldown:
+      en: '<gray>[<yellow>ItemJoin<gray>] <green><item></green> <red>is on cooldown for <green><timeleft></green> <red>seconds.'
+      es: '<gray>[<yellow>ItemJoin<gray>] <green><item></green> <red>está en cooldown por <green><timeleft></green> <red>segundos.'
+  command:
+    no-permission:
+      en: '<red>You do not have permission to use this command.'
+      es: '<red>No tenés permiso para usar este comando.'
+    invalid-sender:
+      en: '<red>This command cannot be used from here.'
+      es: '<red>Este comando no se puede usar desde acá.'
+    invalid-syntax:
+      en: '<red>Invalid syntax. Use: <syntax>'
+      es: '<red>Sintaxis inválida. Usá: <syntax>'
+    execution-error:
+      en: '<red>An internal error occurred while running this command.'
+      es: '<red>Ocurrió un error interno al ejecutar este comando.'
