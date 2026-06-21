@@ -1,8 +1,18 @@
 # Referencia de API pública
 
-La API pública para consumidores está en `com.stephanofer.networkplayersettings.api` y los eventos están en `com.stephanofer.networkplayersettings.event`. Las demás clases del proyecto deben tratarse como internas, aunque sean `public` por necesidades de implementación.
+La API pública para consumidores está separada por dominio. Las demás clases del proyecto deben tratarse como internas, aunque sean `public` por necesidades de implementación.
+
+| Dominio | Paquete público |
+|---|---|
+| Settings | `com.stephanofer.networkplayersettings.settings.api` |
+| Idioma | `com.stephanofer.networkplayersettings.settings.language` |
+| País/flags | `com.stephanofer.networkplayersettings.settings.country.CountryFlag` |
+| Eventos de settings | `com.stephanofer.networkplayersettings.settings.event` |
+| Assets | `com.stephanofer.networkplayersettings.assets.api` |
 
 ## `PlayerSettingsService`
+
+Paquete: `com.stephanofer.networkplayersettings.settings.api`.
 
 Interfaz principal para leer y modificar ajustes.
 
@@ -42,7 +52,11 @@ public interface PlayerSettingsService {
 
 Las mutaciones devuelven `CompletableFuture<Void>`. Si falla la persistencia, el future falla y el caché no se actualiza. No bloquees el main thread con `join()`/`get()`.
 
+Las mutaciones persistentes se serializan por jugador para evitar que dos cambios concurrentes completen fuera de orden y dejen el caché con un snapshot viejo.
+
 ## `PlayerSettingsSnapshot`
+
+Paquete: `com.stephanofer.networkplayersettings.settings.api`.
 
 Snapshot inmutable de ajustes por jugador.
 
@@ -80,6 +94,8 @@ Detalles importantes:
 
 ## `SettingKey`
 
+Paquete: `com.stephanofer.networkplayersettings.settings.api`.
+
 ```java
 public enum SettingKey {
     LANGUAGE("language", true, true, "auto"),
@@ -96,7 +112,21 @@ public enum SettingKey {
 | `defaultValue()` | Default por clave. |
 | `fromStorageKey(String)` | Busca case-insensitive; devuelve `null` si no reconoce la key. |
 
+### Convención para nuevas settings
+
+Antes de agregar una preferencia nueva al core, definí explícitamente:
+
+- `SettingKey`: nombre persistido estable, default y si es escribible por jugador.
+- Validación: valores permitidos, normalización y comportamiento ante valores inválidos.
+- Persistencia: si requiere fila default en DB o si alcanza con default en `PlayerSettingsSnapshot`.
+- Mutación pública: método específico en `PlayerSettingsService` si necesita reglas propias; `setSetting` solo debe usarse para claves genéricas realmente seguras.
+- Evento: cuándo debe disparar `PlayerSettingChangeEvent` y qué representan `oldResolvedValue`/`newResolvedValue`.
+
+Contrato actual importante: `country_override = ""` significa “sin override manual”. Si no hay override válido, `countryCode()` usa `detected_country`.
+
 ## `LanguagePreference`
+
+Paquete: `com.stephanofer.networkplayersettings.settings.language`.
 
 ```java
 public enum LanguagePreference {
@@ -110,6 +140,8 @@ public enum LanguagePreference {
 
 ## `Language`
 
+Paquete: `com.stephanofer.networkplayersettings.settings.language`.
+
 ```java
 public enum Language {
     SPANISH("es", "Español", "Spanish"),
@@ -122,6 +154,8 @@ public enum Language {
 - `fromCode(String)` devuelve `SPANISH` solo para `es`; cualquier otro valor cae en `ENGLISH`.
 
 ## `CountryFlag`
+
+Paquete: `com.stephanofer.networkplayersettings.settings.country`.
 
 Utilidad pública de país/flag.
 
@@ -141,6 +175,8 @@ public final class CountryFlag {
 
 ## `CountryAsset`
 
+Paquete: `com.stephanofer.networkplayersettings.assets.api`.
+
 ```java
 public final class CountryAsset {
     public CountryAsset(String code, String displayName, String headTextureBase64, Set<String> aliases);
@@ -159,6 +195,8 @@ Validaciones del constructor:
 
 ## `NetworkAssetService`
 
+Paquete: `com.stephanofer.networkplayersettings.assets.api`.
+
 ```java
 public interface NetworkAssetService {
     CountryAsset countryAsset(String codeOrAlias);
@@ -174,6 +212,8 @@ public interface NetworkAssetService {
 
 ### `PlayerSettingsReadyEvent`
 
+Paquete: `com.stephanofer.networkplayersettings.settings.event`.
+
 ```java
 public final class PlayerSettingsReadyEvent extends Event {
     public PlayerSettingsReadyEvent(Player player, PlayerSettingsSnapshot snapshot, Language resolvedLanguage);
@@ -187,6 +227,8 @@ public final class PlayerSettingsReadyEvent extends Event {
 Se dispara durante `PlayerJoinEvent` después de marcar al jugador como listo. El evento incluye el snapshot disponible y el idioma resuelto en ese momento.
 
 ### `PlayerSettingChangeEvent`
+
+Paquete: `com.stephanofer.networkplayersettings.settings.event`.
 
 ```java
 public final class PlayerSettingChangeEvent extends Event {

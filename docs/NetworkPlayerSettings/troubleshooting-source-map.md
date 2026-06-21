@@ -7,7 +7,7 @@
 Verificá:
 
 - Tu `plugin.yml`/metadata declara `depend: [NetworkPlayerSettings]` si la integración es obligatoria.
-- NetworkPlayerSettings inició correctamente; si falla config, assets, DB o zMenu, se deshabilita y no registra servicio.
+- NetworkPlayerSettings inició correctamente; si falla config, assets o DB, se deshabilita y no registra servicio.
 - El nombre exacto del plugin es `NetworkPlayerSettings`.
 
 ### `NetworkAssetService` es `null`
@@ -66,32 +66,33 @@ Verificá:
 | Build/dependencias/shading | `build.gradle.kts` |
 | Nombre del plugin y dependencias runtime | `src/main/resources/plugin.yml` |
 | Lifecycle principal | `src/main/java/com/stephanofer/networkplayersettings/NetworkPlayerSettingsPlugin.java` |
-| API pública de ajustes | `src/main/java/com/stephanofer/networkplayersettings/api/PlayerSettingsService.java` |
-| Snapshot y defaults | `src/main/java/com/stephanofer/networkplayersettings/api/PlayerSettingsSnapshot.java` |
-| Idiomas | `Language.java`, `LanguagePreference.java`, `language/LanguageResolver.java` |
-| Setting keys | `api/SettingKey.java` |
-| País/flags | `api/CountryFlag.java`, `api/CountryAsset.java` |
-| Servicio de assets | `api/NetworkAssetService.java`, `asset/*` |
-| Eventos públicos | `event/PlayerSettingsReadyEvent.java`, `event/PlayerSettingChangeEvent.java` |
-| Servicio principal | `service/DefaultPlayerSettingsService.java` |
-| Listeners de conexión | `listener/PlayerConnectionListener.java` |
-| Repositorio SQL | `repository/SqlPlayerSettingsRepository.java` |
+| API pública de ajustes | `src/main/java/com/stephanofer/networkplayersettings/settings/api/PlayerSettingsService.java` |
+| Snapshot y defaults | `src/main/java/com/stephanofer/networkplayersettings/settings/api/PlayerSettingsSnapshot.java` |
+| Idiomas | `settings/language/Language.java`, `settings/language/LanguagePreference.java`, `settings/language/LanguageResolver.java` |
+| Setting keys | `settings/api/SettingKey.java` |
+| País/flags | `settings/country/CountryFlag.java`, `assets/api/CountryAsset.java` |
+| Servicio de assets | `assets/api/NetworkAssetService.java`, `assets/country/*` |
+| Eventos públicos | `settings/event/PlayerSettingsReadyEvent.java`, `settings/event/PlayerSettingChangeEvent.java` |
+| Servicio principal | `settings/application/DefaultPlayerSettingsService.java` |
+| Listeners de conexión | `platform/bukkit/PlayerConnectionListener.java` |
+| Repositorio SQL | `settings/storage/SqlPlayerSettingsRepository.java` |
 | Config model | `config/PluginConfig.java` |
-| YAML loader | `yaml/PluginYamlLoader.java` |
+| YAML loader | `platform/bukkit/PluginYamlLoader.java` |
 | Config default | `src/main/resources/config.yml` |
 | Países default | `src/main/resources/assets/countries.yml` |
 | Migraciones | `src/main/resources/db/migration/*.sql` |
-| PlaceholderAPI | `placeholder/PlayerSettingsPlaceholderExpansion.java` |
-| Comando | `command/GlobalSettingsCommand.java` |
-| zMenu/bootstrap | `menu/*`, `src/main/resources/inventories/language.yml` |
-| Tests de contratos de servicio | `src/test/java/com/stephanofer/networkplayersettings/service/DefaultPlayerSettingsServiceTest.java` |
-| Tests de assets | `src/test/java/com/stephanofer/networkplayersettings/asset/*Test.java` |
+| PlaceholderAPI | `platform/bukkit/PlayerSettingsPlaceholderExpansion.java` |
+| Tests de contratos de servicio | `src/test/java/com/stephanofer/networkplayersettings/settings/application/DefaultPlayerSettingsServiceTest.java` |
+| Tests de assets | `src/test/java/com/stephanofer/networkplayersettings/assets/country/*Test.java` |
+| Addon zMenu - comando | `networkplayersettings-zmenu/src/main/java/com/stephanofer/networkplayersettingszmenu/command/GlobalSettingsCommand.java` |
+| Addon zMenu - vista settings | `networkplayersettings-zmenu/src/main/java/com/stephanofer/networkplayersettingszmenu/settings/view/*` |
+| Addon zMenu - idioma | `networkplayersettings-zmenu/src/main/java/com/stephanofer/networkplayersettingszmenu/settings/language/*` |
 
 ## Checklist de verificación al cambiar el proyecto
 
 - [ ] Si cambia `PlayerSettingsService`, actualizar `api-publica.md` y ejemplos.
 - [ ] Si cambia `PluginConfig` o `config.yml`, actualizar `configuracion.md`.
 - [ ] Si cambia `DefaultPlayerSettingsService`, revisar flujo, eventos, async y do/don't.
-- [ ] Si cambia PlaceholderAPI, actualizar `assets-placeholderapi-ui.md`.
+- [ ] Si cambia PlaceholderAPI o assets públicos, actualizar `assets-placeholderapi.md`.
 - [ ] Si cambia `assets/countries.yml` o loader/catalog, actualizar reglas de assets.
 - [ ] Si cambia plugin metadata, actualizar instalación/integración.

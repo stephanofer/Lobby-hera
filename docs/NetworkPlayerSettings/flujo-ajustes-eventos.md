@@ -49,6 +49,7 @@ Para un plugin consumidor, el camino seguro es escuchar `PlayerSettingsReadyEven
 | `cache` | `UUID -> PlayerSettingsSnapshot` | En quit solo si `settings.cache-cleanup-on-quit: true`. |
 | `localeCache` | locale normalizado del jugador | Siempre se limpia en quit. |
 | `readyPlayers` | UUIDs listos | Siempre se limpia en quit. |
+| `mutationChains` | cola por jugador para mutaciones persistentes | Se remueve cuando la cola del jugador queda completa o al evict del jugador. |
 
 `getCachedOrDefault(UUID)` no fuerza DB; si no hay caché devuelve defaults. Si necesitás cargar desde DB cuando no hay caché, usá `load(UUID)` y encadená el future.
 
@@ -102,6 +103,8 @@ No garantiza una fila default para `country_override`; el snapshot la representa
 
 ## Mutaciones públicas
 
+Las mutaciones públicas persistentes se serializan por jugador. Si dos cambios del mismo jugador se disparan casi al mismo tiempo, el servicio los ejecuta en orden para evitar que una persistencia vieja complete tarde y pise el caché con un snapshot anterior.
+
 ### `setLanguage`
 
 1. Si la preferencia nueva es igual a la actual, devuelve future completado y no dispara evento.
@@ -142,4 +145,4 @@ Como consumidor, tratá eventos como señales de estado, no como transacciones d
 - No asumas que `cached(UUID)` existe antes del ready event.
 - No asumas que `getCachedOrDefault` implica que el jugador está cargado desde DB.
 - No asumas que `country_override` puede escribirse con `setSetting`; usá `setCountryOverride` o `clearCountryOverride`.
-- No asumas que PlaceholderAPI siempre refleja datos recién mutados si está dentro del TTL configurado.
+- No asumas que PlaceholderAPI carga desde DB para jugadores no cacheados; usa caché/defaults. Para jugadores cacheados, la expansión invalida sus entradas al recibir cambios o quit.

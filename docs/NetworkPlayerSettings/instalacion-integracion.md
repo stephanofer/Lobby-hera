@@ -8,13 +8,13 @@ El proyecto se compila como `java-library`, genera un JAR sombreado con Shadow y
 
 | Dependencia | Uso visible |
 |---|---|
-| `io.papermc.paper:paper-api:26.1.2.build.69-stable` | API Paper de compilación. |
+| `io.papermc.paper:paper-api:26.2.build.25-alpha` | API Paper de compilación del core. |
 | `me.clip:placeholderapi:2.12.2` | Integración opcional PlaceholderAPI. |
 | `com.hera.craftkit:craftkit-database:1.1.0` | Base de datos y migraciones internas. |
-| `com.hera.craftkit:craftkit-zmenu:1.1.0` | Bootstrap de zMenu interno. |
 | `com.stephanofer.boostedyaml:boosted-yaml:1.3.7` | Carga y auto-update de YAML internos. |
-| `org.incendo:cloud-paper:2.0.0-beta.15` y `cloud-minecraft-extras` | Comando `/globalsettings`. |
 | `com.maxmind.geoip2:geoip2:5.1.0` | Resolución GeoIP interna. |
+
+El repositorio también puede contener consumidores de ejemplo o plugins complementarios, pero esta documentación se centra en el artefacto core `NetworkPlayerSettings`.
 
 ## Publicación local de NetworkPlayerSettings
 
@@ -22,7 +22,7 @@ El proyecto define estas coordenadas Maven locales:
 
 ```kotlin
 group = "com.stephanofer"
-version = "1.0.0-SNAPSHOT"
+version = "2.0.0"
 artifactId = "networkplayersettings"
 ```
 
@@ -48,12 +48,14 @@ repositories {
 }
 
 dependencies {
-    compileOnly("com.stephanofer:networkplayersettings:1.0.0-SNAPSHOT")
-    compileOnly("io.papermc.paper:paper-api:26.1.2.build.69-stable")
+    compileOnly("com.stephanofer:networkplayersettings:2.0.0")
+    compileOnly("io.papermc.paper:paper-api:26.2.build.25-alpha")
 }
 ```
 
 Usá `compileOnly`, no `implementation`, porque NetworkPlayerSettings debe estar instalado como plugin en el servidor. El consumidor necesita las clases para compilar, pero no debe sombrear ni empaquetar NetworkPlayerSettings dentro de su propio JAR.
+
+`publishToMavenLocal` publica el JAR normal de compilación/API del core. Para instalar el plugin en un servidor, usá el JAR sombreado generado por `./gradlew build` en `target/`.
 
 ### Cuándo usar `libs/`
 
@@ -71,6 +73,22 @@ dependencies {
 
 La publicación configurada es local. El proyecto no declara un repositorio Maven remoto para publicar releases compartidos. Si varios desarrolladores o un CI necesitan resolver la dependencia sin depender de la máquina local, publicá el mismo artefacto en un Maven privado y reemplazá `mavenLocal()` por ese repositorio.
 
+## Salida de build para servidor
+
+Al ejecutar el build completo desde la raíz:
+
+```bash
+./gradlew build
+```
+
+Shadow genera el JAR final del core en `target/`:
+
+| Archivo | Plugin |
+|---|---|
+| `target/NetworkPlayerSettings-2.0.0.jar` | Core de settings, sin zMenu. |
+
+Si el repo contiene plugins consumidores adicionales, pueden generar sus propios JARs en la misma carpeta, pero no forman parte del contrato público de `NetworkPlayerSettings`.
+
 ## Metadata del plugin consumidor
 
 `NetworkPlayerSettings` se registra como plugin con este nombre exacto:
@@ -78,7 +96,6 @@ La publicación configurada es local. El proyecto no declara un repositorio Mave
 ```yaml
 name: NetworkPlayerSettings
 main: com.stephanofer.networkplayersettings.NetworkPlayerSettingsPlugin
-depend: [zMenu]
 softdepend: [PlaceholderAPI]
 ```
 
@@ -100,12 +117,14 @@ NetworkPlayerSettings registra dos servicios en `ServicesManager`:
 
 | Servicio | Registro real | Cuándo aparece |
 |---|---|---|
-| `PlayerSettingsService` | `register(PlayerSettingsService.class, settingsService, plugin, ServicePriority.Normal)` | Después de inicializar config, assets, DB, zMenu, servicio, placeholders, comandos y listeners. |
+| `PlayerSettingsService` | `register(PlayerSettingsService.class, settingsService, plugin, ServicePriority.Normal)` | Después de inicializar config, assets, DB y servicio de ajustes. |
 | `NetworkAssetService` | `register(NetworkAssetService.class, service, plugin, ServicePriority.Normal)` | Durante `initializeAssets()`, antes del servicio de ajustes. |
 
 Ejemplo recomendado en `onEnable()` de un consumidor con `depend`:
 
 ```java
+import com.stephanofer.networkplayersettings.settings.api.PlayerSettingsService;
+
 private PlayerSettingsService playerSettings;
 
 @Override
@@ -122,6 +141,8 @@ public void onEnable() {
 Ejemplo opcional con `softdepend`:
 
 ```java
+import com.stephanofer.networkplayersettings.settings.api.PlayerSettingsService;
+
 Optional<PlayerSettingsService> settings = Optional.ofNullable(
     Bukkit.getServicesManager().load(PlayerSettingsService.class)
 );
@@ -134,10 +155,10 @@ NetworkPlayerSettings hace en `onEnable()`:
 1. carga `config.yml` con `PluginYamlLoader`;
 2. carga `assets/countries.yml` y registra `NetworkAssetService`;
 3. abre base de datos MySQL y ejecuta migraciones;
-4. requiere zMenu y carga inventarios/dialogs;
-5. crea `DefaultPlayerSettingsService`;
+4. crea `DefaultPlayerSettingsService`;
+5. registra `PlayerSettingsService`;
 6. registra PlaceholderAPI si aplica;
-7. registra comando, listener y `PlayerSettingsService`.
+7. registra listeners de conexión.
 
 En `onDisable()` desregistra la expansión PlaceholderAPI, desregistra todos sus servicios y cierra GeoIP/DB.
 
@@ -149,6 +170,8 @@ Para consumidores, esto significa:
 
 ## Dependencias transitivas de runtime del servidor
 
-NetworkPlayerSettings declara `depend: [zMenu]`; si zMenu no está instalado, Paper/Bukkit no debería habilitar NetworkPlayerSettings. PlaceholderAPI es opcional por metadata y por config.
+NetworkPlayerSettings core no depende de zMenu. PlaceholderAPI es opcional por metadata y por config.
 
-Un plugin consumidor no necesita depender directamente de zMenu salvo que también use zMenu por cuenta propia. Para usar placeholders `%playersettings_*%`, el servidor debe tener PlaceholderAPI y `placeholderapi.enabled: true`.
+Si otro plugin quiere construir UI, comandos o menús, debe declarar dependencia hacia `NetworkPlayerSettings`, obtener `PlayerSettingsService`/`NetworkAssetService` desde `ServicesManager` y operar mediante la API pública.
+
+Para usar placeholders `%playersettings_*%`, el servidor debe tener PlaceholderAPI y `placeholderapi.enabled: true`.

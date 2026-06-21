@@ -5,7 +5,7 @@ Estos ejemplos usan únicamente API pública de NetworkPlayerSettings.
 ## Obtener servicios de forma segura
 
 ```java
-import com.stephanofer.networkplayersettings.api.PlayerSettingsService;
+import com.stephanofer.networkplayersettings.settings.api.PlayerSettingsService;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -26,7 +26,7 @@ public final class ConsumerPlugin extends JavaPlugin {
 ## Esperar datos listos
 
 ```java
-import com.stephanofer.networkplayersettings.event.PlayerSettingsReadyEvent;
+import com.stephanofer.networkplayersettings.settings.event.PlayerSettingsReadyEvent;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 
@@ -55,6 +55,8 @@ player.sendMessage("Language: " + language.code());
 ## Leer país y renderizar bandera
 
 ```java
+import com.stephanofer.networkplayersettings.settings.country.CountryFlag;
+
 UUID playerId = player.getUniqueId();
 String countryCode = settings.countryCode(playerId);
 String flag = CountryFlag.emoji(countryCode);
@@ -64,6 +66,8 @@ player.sendMessage("Country: " + flag + " " + countryCode);
 ## Cambiar idioma sin bloquear el main thread
 
 ```java
+import com.stephanofer.networkplayersettings.settings.language.LanguagePreference;
+
 settings.setLanguage(player.getUniqueId(), LanguagePreference.SPANISH)
     .thenRun(() -> player.getScheduler().run(plugin, task -> {
         player.sendMessage("Language saved.");
@@ -99,8 +103,8 @@ settings.clearCountryOverride(player.getUniqueId());
 ## Escuchar cambios
 
 ```java
-import com.stephanofer.networkplayersettings.api.SettingKey;
-import com.stephanofer.networkplayersettings.event.PlayerSettingChangeEvent;
+import com.stephanofer.networkplayersettings.settings.api.SettingKey;
+import com.stephanofer.networkplayersettings.settings.event.PlayerSettingChangeEvent;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 
@@ -118,6 +122,9 @@ public final class SettingChangeListener implements Listener {
 ## Acceder a assets de país
 
 ```java
+import com.stephanofer.networkplayersettings.assets.api.CountryAsset;
+import com.stephanofer.networkplayersettings.assets.api.NetworkAssetService;
+
 NetworkAssetService assets = Bukkit.getServicesManager().load(NetworkAssetService.class);
 if (assets != null) {
     CountryAsset asset = assets.countryAsset(settings.countryCode(player.getUniqueId()));
@@ -143,5 +150,5 @@ if (assets != null) {
 - Servicio ausente: plugin deshabilitado, startup fallido o integración opcional.
 - Future fallido al mutar: DB caída, error de pool o excepción de persistencia.
 - Jugador no listo: join todavía no procesado o jugador desconectado.
-- Placeholder desactualizado por TTL: el valor puede cachearse hasta `placeholderapi.cache-ttl-millis`.
+- Placeholder con fallback/cache: para jugadores no cacheados usa defaults; para jugadores cacheados se invalida al cambiar settings o al salir.
 - País desconocido `XX`: GeoIP apagado, IP no pública, DB faltante o lookup fallido.

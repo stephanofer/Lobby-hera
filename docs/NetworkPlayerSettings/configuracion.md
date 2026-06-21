@@ -26,20 +26,10 @@ settings:
   default-language: "en"
   detect-client-locale: true
   cache-cleanup-on-quit: true
-  language-change-cooldown-millis: 750
 
 geoip:
   enabled: true
   database-path: "GeoLite2-Country.mmdb"
-
-command:
-  name: "globalsettings"
-  aliases:
-    - "settings"
-    - "prefs"
-  open:
-    type: "menu"
-    key: "language"
 
 placeholderapi:
   enabled: true
@@ -75,7 +65,6 @@ Consecuencias para consumidores:
 | `settings.default-language` | String | `en` | Se convierte con `Language.fromCode`; solo `es` produce `SPANISH`, todo lo demás produce `ENGLISH`. |
 | `settings.detect-client-locale` | boolean | `true` | Si está activo, `AUTO` usa el locale del cliente (`es*`/`en*`). Si está apagado, `AUTO` cae en `default-language`. |
 | `settings.cache-cleanup-on-quit` | boolean | `true` | Si está activo, al salir el jugador se elimina su snapshot cacheado. Si está apagado, queda cacheado pero `ready=false`. |
-| `settings.language-change-cooldown-millis` | long | `750` | Cooldown del botón interno de idioma. Valores negativos se tratan como `0` al usarse. |
 
 Impacto para consumidores:
 
@@ -95,17 +84,6 @@ Comportamiento operativo:
 - Direcciones no públicas, loopback, link-local, site-local o multicast devuelven `XX`.
 - Errores de lookup se loguean como warning y devuelven `XX`.
 - Una detección desconocida no pisa un país real ya persistido.
-
-### `command`
-
-| Key | Tipo | Default en código | Efecto |
-|---|---:|---|---|
-| `command.name` | String | `globalsettings` | Comando principal. Si es blanco, fallback `globalsettings`. |
-| `command.aliases` | List<String> | `settings`, `prefs` | Aliases trimmeados; blancos se eliminan; alias igual al nombre principal se elimina. |
-| `command.open.type` | String | `menu` | `dialog` produce `DIALOG`; cualquier otro valor produce `MENU`. |
-| `command.open.key` | String | `language` | Key de inventario/dialog a abrir; si es blanco, fallback `language`. |
-
-El comando solo acepta jugadores (`senderType(PlayerSource.class)`). Si el jugador no está ready, envía mensaje `settings.loading`.
 
 ### `placeholderapi`
 
@@ -144,43 +122,9 @@ Reglas reales del loader:
 - `aliases` se normalizan a minúsculas.
 - No puede haber códigos duplicados tras normalización.
 - No puede haber aliases duplicados.
-- Un alias no puede colisionar con un código canónico.
+- Un alias no puede colisionar con ningún código canónico del catálogo, incluso si ese código aparece después en el YAML.
 
 Si el catálogo es inválido, el bootstrap de assets falla y el plugin no registra `NetworkAssetService`.
-
-## `inventories/language.yml`
-
-Este recurso configura el menú interno zMenu de idioma. No es una API pública, pero afecta la UX del comando.
-
-- Inventario `language`, tamaño `27`.
-- Botones `NPS_LANGUAGE` para `es`, `auto`, `en` en slots `11`, `13`, `15`.
-- El loader `LanguageButtonLoader` lee `language`; valores desconocidos caen en `LanguagePreference.AUTO`.
-
-Placeholders internos del botón:
-
-| Placeholder | Valor |
-|---|---|
-| `%language_option%` | `auto`, `es` o `en`. |
-| `%language_selected%` | `true`/`false`. |
-| `%selected_marker%` | `✔ ` si está seleccionado; vacío si no. |
-| `%selected_state%` | Mensaje localizado de seleccionado/disponible. |
-| `%effective_language%` | Código del idioma efectivo actual. |
-| `%current_preference%` | Preferencia actual guardada/cacheada. |
-
-## `messages/*.properties`
-
-Mensajes internos disponibles para inglés/español:
-
-- `settings.loading`
-- `settings.menu-open-failed`
-- `settings.language.updated`
-- `settings.language.already-selected`
-- `settings.language.cooldown`
-- `settings.language.auto-name`
-- `menu.language.selected-state`
-- `menu.language.available-state`
-
-No hay API pública para que plugins consumidores registren mensajes en `PluginMessages`.
 
 ## Migraciones DB incluidas
 
