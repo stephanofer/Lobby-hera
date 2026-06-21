@@ -19,3 +19,8 @@ hs_err_pid*
 
 # Common working directory
 run
+
+target/
+bin/
+boosted-yaml/
+cloud-minecraft/

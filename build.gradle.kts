@@ -35,11 +35,12 @@ tasks {
     }
 
     jar {
-        destinationDirectory.set(layout.projectDirectory.dir("target"))
+        enabled = false
     }
 
     shadowJar {
         destinationDirectory.set(layout.projectDirectory.dir("target"))
+        archiveClassifier.set("")
 
         relocate("dev.dejvokep.boostedyaml", "com.stephanofer.lobbyHera.libs.boostedyaml")
         relocate("org.incendo.cloud", "com.stephanofer.lobbyHera.libs.cloud")
