@@ -13,7 +13,7 @@ repositories {
 
 dependencies {
     compileOnly("io.papermc.paper:paper-api:26.2.build.23-alpha")
-    compileOnly("com.stephanofer:networkplayersettings:1.0.0-SNAPSHOT")
+    compileOnly("com.stephanofer:networkplayersettings:2.0.0")
 
     implementation("com.stephanofer.boostedyaml:boosted-yaml:1.3.7")
     implementation("org.incendo:cloud-paper:2.0.0-beta.15")
@@ -34,7 +34,13 @@ tasks {
         }
     }
 
+    jar {
+        destinationDirectory.set(layout.projectDirectory.dir("target"))
+    }
+
     shadowJar {
+        destinationDirectory.set(layout.projectDirectory.dir("target"))
+
         relocate("dev.dejvokep.boostedyaml", "com.stephanofer.lobbyHera.libs.boostedyaml")
         relocate("org.incendo.cloud", "com.stephanofer.lobbyHera.libs.cloud")
         relocate("io.leangen.geantyref", "com.stephanofer.lobbyHera.libs.geantyref")
@@ -45,6 +51,10 @@ tasks {
         filesMatching("META-INF/services/**") {
             duplicatesStrategy = DuplicatesStrategy.INCLUDE
         }
+    }
+
+    clean {
+        delete(layout.projectDirectory.dir("target"))
     }
 
     assemble {

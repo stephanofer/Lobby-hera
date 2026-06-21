@@ -1,13 +1,12 @@
 package com.stephanofer.lobbyHera.message;
 
 import com.stephanofer.lobbyHera.config.PluginConfigService;
-import com.stephanofer.networkplayersettings.api.Language;
-import com.stephanofer.networkplayersettings.api.PlayerSettingsService;
+import com.stephanofer.networkplayersettings.settings.api.PlayerSettingsService;
+import com.stephanofer.networkplayersettings.settings.language.Language;
+import java.util.Locale;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-
-import java.util.Locale;
 
 public final class LocalizationService {
 
@@ -16,9 +15,13 @@ public final class LocalizationService {
 
     public LocalizationService(PluginConfigService configService) {
         this.configService = configService;
-        this.playerSettingsService = Bukkit.getServicesManager().load(PlayerSettingsService.class);
+        this.playerSettingsService = Bukkit.getServicesManager().load(
+            PlayerSettingsService.class
+        );
         if (this.playerSettingsService == null) {
-            throw new IllegalStateException("NetworkPlayerSettings PlayerSettingsService is not available");
+            throw new IllegalStateException(
+                "NetworkPlayerSettings PlayerSettingsService is not available"
+            );
         }
     }
 
@@ -43,7 +46,8 @@ public final class LocalizationService {
     }
 
     public static String normalize(String raw) {
-        String normalized = raw == null ? "en" : raw.trim().toLowerCase(Locale.ROOT);
+        String normalized =
+            raw == null ? "en" : raw.trim().toLowerCase(Locale.ROOT);
         return normalized.equals("es") ? "es" : "en";
     }
 }
