@@ -12,12 +12,12 @@ repositories {
 }
 
 dependencies {
-    compileOnly("io.papermc.paper:paper-api:26.2.build.23-alpha")
+    compileOnly("io.papermc.paper:paper-api:26.2.build.34-alpha")
     compileOnly("com.stephanofer:networkplayersettings:2.0.0")
 
     implementation("com.stephanofer.boostedyaml:boosted-yaml:1.3.7")
-    implementation("org.incendo:cloud-paper:2.0.0-beta.15")
-    implementation("org.incendo:cloud-minecraft-extras:2.0.0-beta.15")
+    implementation("org.incendo:cloud-paper:2.0.0-beta.16")
+    implementation("org.incendo:cloud-minecraft-extras:2.0.0-beta.16")
 
 }
 

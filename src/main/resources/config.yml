@@ -1,4 +1,4 @@
-config-version: 1
+config-version: 2
 
 settings:
   default-language: en
@@ -7,6 +7,56 @@ settings:
   lock-managed-items-in-inventory: true
   clear-cooldowns-on-quit: false
   forced-join-held-slot: 0
+
+world-protection:
+  enabled: true
+  bypass-permission: lobbyhera.protection.bypass
+  disable-hunger-loss: true
+  disable-player-pvp: true
+  disable-fall-damage: true
+  disable-fire-damage: true
+  disable-drowning: true
+  disable-void-death: true
+  disable-off-hand-swap: true
+  disable-weather-change: true
+  disable-death-message: true
+  clear-death-drops: true
+  disable-mob-spawning: true
+  disable-item-drop: true
+  disable-item-pickup: false
+  disable-block-break: true
+  disable-block-place: true
+  disable-block-interact: true
+  disable-block-burn: true
+  disable-block-fire-spread: true
+  disable-block-leaf-decay: true
+  protect-item-frames: true
+  always-day:
+    enabled: true
+    time: 6000
+
+join-actions:
+  enabled: true
+  teleport-spawn: true
+  clear-inventory: true
+  remove-effects: true
+  give-lobby-items: true
+  actions:
+    - '[GAMEMODE] adventure'
+    - '[SOUND] minecraft:block.note_block.pling'
+    - '[TITLE] <gold>Welcome;<gray>Enjoy the lobby'
+    - '[MESSAGE] <green>Welcome, <player>!'
+    - '[POTION_EFFECT] speed;-1;1'
+
+staff-mode:
+  enabled: true
+  permission: lobbyhera.staffmode
+  others-permission: lobbyhera.staffmode.others
+  protection-bypass: true
+  clear-lobby-items-on-enable: true
+  restore-lobby-items-on-disable: true
+  gamemode-on-enable: creative
+  gamemode-on-disable: adventure
 
 lobby:
   world: ''

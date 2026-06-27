@@ -1,8 +1,8 @@
 package com.stephanofer.lobbyHera.itemjoin;
 
+import com.stephanofer.lobbyHera.staff.StaffModeService;
 import com.stephanofer.networkplayersettings.settings.api.SettingKey;
 import com.stephanofer.networkplayersettings.settings.event.PlayerSettingChangeEvent;
-import com.stephanofer.networkplayersettings.settings.event.PlayerSettingsReadyEvent;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
@@ -29,23 +29,16 @@ public final class ItemJoinListener implements Listener {
 
     private final JavaPlugin plugin;
     private final ItemJoinService itemJoinService;
+    private final StaffModeService staffModeService;
 
     public ItemJoinListener(
         JavaPlugin plugin,
-        ItemJoinService itemJoinService
+        ItemJoinService itemJoinService,
+        StaffModeService staffModeService
     ) {
         this.plugin = plugin;
         this.itemJoinService = itemJoinService;
-    }
-
-    @EventHandler(priority = EventPriority.HIGHEST)
-    public void onSettingsReady(PlayerSettingsReadyEvent event) {
-        Player player = event.player();
-        this.itemJoinService.giveItems(
-            player,
-            ItemJoinService.TriggerType.JOIN
-        );
-        this.itemJoinService.applyJoinHeldSlot(player);
+        this.staffModeService = staffModeService;
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -65,20 +58,22 @@ public final class ItemJoinListener implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onRespawn(PlayerRespawnEvent event) {
         Player player = event.getPlayer();
-        Bukkit.getScheduler().runTask(this.plugin, () ->
-            this.itemJoinService.giveItems(
-                player,
-                ItemJoinService.TriggerType.RESPAWN
-            )
-        );
+        if (this.staffModeService.isActive(player.getUniqueId())) {
+            return;
+        }
+        Bukkit.getScheduler().runTask(this.plugin, () -> {
+            this.itemJoinService.giveLobbyItems(player);
+            this.itemJoinService.giveItems(player, ItemJoinService.TriggerType.RESPAWN);
+        });
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onWorldSwitch(PlayerChangedWorldEvent event) {
-        this.itemJoinService.giveItems(
-            event.getPlayer(),
-            ItemJoinService.TriggerType.WORLD_SWITCH
-        );
+        if (this.staffModeService.isActive(event.getPlayer().getUniqueId())) {
+            return;
+        }
+        this.itemJoinService.giveLobbyItems(event.getPlayer());
+        this.itemJoinService.giveItems(event.getPlayer(), ItemJoinService.TriggerType.WORLD_SWITCH);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
@@ -88,7 +83,7 @@ public final class ItemJoinListener implements Listener {
         }
 
         Player player = event.getPlayer();
-        if (this.itemJoinService.isStaffBypass(player.getUniqueId())) {
+        if (this.staffModeService.isActive(player.getUniqueId())) {
             return;
         }
 
@@ -118,7 +113,7 @@ public final class ItemJoinListener implements Listener {
         }
 
         Player player = event.getPlayer();
-        if (this.itemJoinService.isStaffBypass(player.getUniqueId())) {
+        if (this.staffModeService.isActive(player.getUniqueId())) {
             return;
         }
 
@@ -135,7 +130,8 @@ public final class ItemJoinListener implements Listener {
     public void onDrop(PlayerDropItemEvent event) {
         ItemStack itemStack = event.getItemDrop().getItemStack();
         if (
-            this.itemJoinService.shouldBlockDrop(event.getPlayer(), itemStack)
+            !this.staffModeService.isActive(event.getPlayer().getUniqueId()) &&
+            this.itemJoinService.shouldBlockDrop(itemStack)
         ) {
             event.setCancelled(true);
         }
@@ -146,7 +142,7 @@ public final class ItemJoinListener implements Listener {
         if (!(event.getWhoClicked() instanceof Player player)) {
             return;
         }
-        if (!this.itemJoinService.shouldLockManagedItemsInInventory(player)) {
+        if (this.staffModeService.isActive(player.getUniqueId()) || !this.itemJoinService.shouldLockManagedItemsInInventory()) {
             return;
         }
 
@@ -173,7 +169,7 @@ public final class ItemJoinListener implements Listener {
         if (!(event.getWhoClicked() instanceof Player player)) {
             return;
         }
-        if (!this.itemJoinService.shouldLockManagedItemsInInventory(player)) {
+        if (this.staffModeService.isActive(player.getUniqueId()) || !this.itemJoinService.shouldLockManagedItemsInInventory()) {
             return;
         }
 
@@ -188,9 +184,8 @@ public final class ItemJoinListener implements Listener {
     @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
     public void onSwapHand(PlayerSwapHandItemsEvent event) {
         if (
-            !this.itemJoinService.shouldLockManagedItemsInInventory(
-                event.getPlayer()
-            )
+            this.staffModeService.isActive(event.getPlayer().getUniqueId()) ||
+            !this.itemJoinService.shouldLockManagedItemsInInventory()
         ) {
             return;
         }
@@ -206,7 +201,7 @@ public final class ItemJoinListener implements Listener {
     @EventHandler(priority = EventPriority.NORMAL)
     public void onDeath(PlayerDeathEvent event) {
         if (
-            this.itemJoinService.isStaffBypass(event.getPlayer().getUniqueId())
+            this.staffModeService.isActive(event.getPlayer().getUniqueId())
         ) {
             return;
         }
@@ -223,6 +218,6 @@ public final class ItemJoinListener implements Listener {
     public void onQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
         this.itemJoinService.handlePlayerQuit(player.getUniqueId());
-        this.itemJoinService.clearStaffBypass(player.getUniqueId());
+        this.staffModeService.clear(player.getUniqueId());
     }
 }

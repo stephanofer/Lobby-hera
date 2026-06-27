@@ -1,4 +1,4 @@
-config-version: 3
+config-version: 4
 
 messages:
   console-only:
@@ -74,3 +74,12 @@ messages:
     execution-error:
       en: '<red>An internal error occurred while running this command.'
       es: '<red>Ocurrió un error interno al ejecutar este comando.'
+    gamemode-changed:
+      en: '<green>Your gamemode was changed to <white><gamemode><green>.'
+      es: '<green>Tu modo de juego cambió a <white><gamemode><green>.'
+    fly-enabled:
+      en: '<green>Flight enabled.'
+      es: '<green>Vuelo activado.'
+    fly-disabled:
+      en: '<yellow>Flight disabled.'
+      es: '<yellow>Vuelo desactivado.'

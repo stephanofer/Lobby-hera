@@ -28,3 +28,12 @@ permissions:
   lobbyhera.staffmode.others:
     description: Permite activar/desactivar staff mode de otros.
     default: op
+  lobbyhera.protection.bypass:
+    description: Permite saltarse la protección global del lobby.
+    default: op
+  lobbyhera.command.gamemode:
+    description: Permite usar alias cortos de gamemode.
+    default: op
+  lobbyhera.command.fly:
+    description: Permite activar/desactivar vuelo propio.
+    default: op

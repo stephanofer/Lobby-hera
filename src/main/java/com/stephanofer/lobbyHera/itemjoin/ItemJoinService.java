@@ -34,7 +34,6 @@ import java.util.Collections;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -80,7 +79,6 @@ public final class ItemJoinService {
     private final Map<String, ItemDefinition> itemsById = new HashMap<>();
     private final Map<TriggerType, List<ItemDefinition>> itemsByTrigger = new EnumMap<>(TriggerType.class);
     private final Map<UUID, Map<String, Long>> cooldowns = new HashMap<>();
-    private final Set<UUID> staffBypassUsers = new HashSet<>();
 
     private boolean blockAllItemDrops;
     private boolean blockManagedItemDrops;
@@ -143,7 +141,6 @@ public final class ItemJoinService {
 
     public void clearRuntimeState() {
         this.cooldowns.clear();
-        this.staffBypassUsers.clear();
     }
 
     public void handlePlayerQuit(UUID uuid) {
@@ -165,22 +162,6 @@ public final class ItemJoinService {
         }
     }
 
-    public boolean toggleStaffBypass(UUID uuid) {
-        if (this.staffBypassUsers.remove(uuid)) {
-            return false;
-        }
-        this.staffBypassUsers.add(uuid);
-        return true;
-    }
-
-    public void clearStaffBypass(UUID uuid) {
-        this.staffBypassUsers.remove(uuid);
-    }
-
-    public boolean isStaffBypass(UUID uuid) {
-        return this.staffBypassUsers.contains(uuid);
-    }
-
     public void giveItems(Player player, TriggerType triggerType) {
         List<ItemDefinition> definitions = this.itemsByTrigger.get(triggerType);
         if (definitions == null || definitions.isEmpty()) {
@@ -195,6 +176,23 @@ public final class ItemJoinService {
                 continue;
             }
             inventory.setItem(definition.slot(), definition.itemTemplate(language).clone());
+        }
+    }
+
+    public void giveLobbyItems(Player player) {
+        giveItems(player, TriggerType.JOIN);
+        applyJoinHeldSlot(player);
+    }
+
+    public void removeManagedItems(Player player) {
+        PlayerInventory inventory = player.getInventory();
+        for (int slot = 0; slot < inventory.getSize(); slot++) {
+            if (isManagedItem(inventory.getItem(slot))) {
+                inventory.setItem(slot, null);
+            }
+        }
+        if (isManagedItem(inventory.getItemInOffHand())) {
+            inventory.setItemInOffHand(null);
         }
     }
 
@@ -224,10 +222,7 @@ public final class ItemJoinService {
         return definition == null || definition.allowSelfDrops();
     }
 
-    public boolean shouldBlockDrop(Player player, ItemStack itemStack) {
-        if (isStaffBypass(player.getUniqueId())) {
-            return false;
-        }
+    public boolean shouldBlockDrop(ItemStack itemStack) {
         if (this.blockAllItemDrops) {
             return true;
         }
@@ -237,8 +232,8 @@ public final class ItemJoinService {
         return this.blockManagedItemDrops || !canSelfDrop(itemStack);
     }
 
-    public boolean shouldLockManagedItemsInInventory(Player player) {
-        return this.lockManagedItemsInInventory && !isStaffBypass(player.getUniqueId());
+    public boolean shouldLockManagedItemsInInventory() {
+        return this.lockManagedItemsInInventory;
     }
 
     public boolean canDeathDrop(ItemStack itemStack) {

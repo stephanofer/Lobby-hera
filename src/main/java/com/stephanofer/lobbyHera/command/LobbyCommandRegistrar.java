@@ -1,10 +1,11 @@
 package com.stephanofer.lobbyHera.command;
 
-import com.stephanofer.lobbyHera.itemjoin.ItemJoinService;
 import com.stephanofer.lobbyHera.lobby.LobbyLocationService;
 import com.stephanofer.lobbyHera.message.MessageService;
+import com.stephanofer.lobbyHera.staff.StaffModeService;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
+import org.bukkit.GameMode;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -28,14 +29,14 @@ public final class LobbyCommandRegistrar {
 
     private final JavaPlugin plugin;
     private final LobbyLocationService lobbyLocationService;
-    private final ItemJoinService itemJoinService;
+    private final StaffModeService staffModeService;
     private final MessageService messageService;
     private PaperCommandManager<Source> commandManager;
 
-    public LobbyCommandRegistrar(JavaPlugin plugin, LobbyLocationService lobbyLocationService, ItemJoinService itemJoinService, MessageService messageService) {
+    public LobbyCommandRegistrar(JavaPlugin plugin, LobbyLocationService lobbyLocationService, StaffModeService staffModeService, MessageService messageService) {
         this.plugin = plugin;
         this.lobbyLocationService = lobbyLocationService;
-        this.itemJoinService = itemJoinService;
+        this.staffModeService = staffModeService;
         this.messageService = messageService;
     }
 
@@ -47,8 +48,11 @@ public final class LobbyCommandRegistrar {
         registerExceptionHandlers();
         registerLobbyCommand("lobby");
         registerLobbyCommand("spawn");
-        registerSetLobbyCommand();
+        registerSetLobbyCommand("setlobby");
+        registerSetLobbyCommand("setspawn");
         registerStaffModeCommand();
+        registerGameModeCommands();
+        registerFlyCommand();
     }
 
     private void registerExceptionHandlers() {
@@ -92,8 +96,8 @@ public final class LobbyCommandRegistrar {
         );
     }
 
-    private void registerSetLobbyCommand() {
-        this.commandManager.command(this.commandManager.commandBuilder("setlobby")
+    private void registerSetLobbyCommand(String name) {
+        this.commandManager.command(this.commandManager.commandBuilder(name)
                 .permission("lobbyhera.lobby.set")
                 .senderType(PlayerSource.class)
                 .handler(context -> {
@@ -105,8 +109,13 @@ public final class LobbyCommandRegistrar {
     }
 
     private void registerStaffModeCommand() {
-        this.commandManager.command(this.commandManager.commandBuilder("staffmode")
-                .permission("lobbyhera.staffmode")
+        registerStaffModeCommand("staffmode");
+        registerStaffModeCommand("staff");
+    }
+
+    private void registerStaffModeCommand(String name) {
+        this.commandManager.command(this.commandManager.commandBuilder(name)
+                .permission(this.staffModeService.settings().permission())
                 .handler(context -> {
                     CommandSender sender = context.sender().source();
                     if (!(sender instanceof Player player)) {
@@ -114,25 +123,25 @@ public final class LobbyCommandRegistrar {
                         return;
                     }
 
-                    boolean enabled = this.itemJoinService.toggleStaffBypass(player.getUniqueId());
+                    boolean enabled = this.staffModeService.toggle(player);
                     this.messageService.send(player, enabled ? "staffmode.enabled.self" : "staffmode.disabled.self");
                 })
         );
 
-        this.commandManager.command(this.commandManager.commandBuilder("staffmode")
-                .permission("lobbyhera.staffmode")
+        this.commandManager.command(this.commandManager.commandBuilder(name)
+                .permission(this.staffModeService.settings().permission())
                 .required("player", playerParser())
                 .handler(context -> {
                     Source source = context.sender();
                     CommandSender sender = source.source();
-                    if (!sender.hasPermission("lobbyhera.staffmode.others")) {
+                    if (!sender.hasPermission(this.staffModeService.settings().othersPermission())) {
                         this.messageService.send(sender, "staffmode.no-permission-others");
                         return;
                     }
 
                     Player target = context.get("player");
 
-                    boolean enabled = this.itemJoinService.toggleStaffBypass(target.getUniqueId());
+                    boolean enabled = this.staffModeService.toggle(target);
                     this.messageService.send(
                             sender,
                             enabled ? "staffmode.enabled.other" : "staffmode.disabled.other",
@@ -142,6 +151,55 @@ public final class LobbyCommandRegistrar {
                     if (!sender.equals(target)) {
                         this.messageService.send(target, enabled ? "staffmode.enabled.target" : "staffmode.disabled.target");
                     }
+                })
+        );
+    }
+
+    private void registerGameModeCommands() {
+        registerGameModeCommand("gmc", GameMode.CREATIVE);
+        registerGameModeCommand("gms", GameMode.SURVIVAL);
+        registerGameModeCommand("gma", GameMode.ADVENTURE);
+        registerGameModeCommand("gmsp", GameMode.SPECTATOR);
+        registerGameModeLiteral("creative", GameMode.CREATIVE);
+        registerGameModeLiteral("survival", GameMode.SURVIVAL);
+        registerGameModeLiteral("adventure", GameMode.ADVENTURE);
+        registerGameModeLiteral("spectator", GameMode.SPECTATOR);
+    }
+
+    private void registerGameModeCommand(String name, GameMode gameMode) {
+        this.commandManager.command(this.commandManager.commandBuilder(name)
+                .permission("lobbyhera.command.gamemode")
+                .senderType(PlayerSource.class)
+                .handler(context -> setGameMode(context.sender().source(), gameMode))
+        );
+    }
+
+    private void registerGameModeLiteral(String literal, GameMode gameMode) {
+        this.commandManager.command(this.commandManager.commandBuilder("gm")
+                .permission("lobbyhera.command.gamemode")
+                .senderType(PlayerSource.class)
+                .literal(literal)
+                .handler(context -> setGameMode(context.sender().source(), gameMode))
+        );
+    }
+
+    private void setGameMode(Player player, GameMode gameMode) {
+        player.setGameMode(gameMode);
+        this.messageService.send(player, "command.gamemode-changed", Placeholder.unparsed("gamemode", gameMode.name().toLowerCase(java.util.Locale.ROOT)));
+    }
+
+    private void registerFlyCommand() {
+        this.commandManager.command(this.commandManager.commandBuilder("fly")
+                .permission("lobbyhera.command.fly")
+                .senderType(PlayerSource.class)
+                .handler(context -> {
+                    Player player = context.sender().source();
+                    boolean enabled = !player.getAllowFlight();
+                    player.setAllowFlight(enabled);
+                    if (!enabled) {
+                        player.setFlying(false);
+                    }
+                    this.messageService.send(player, enabled ? "command.fly-enabled" : "command.fly-disabled");
                 })
         );
     }

@@ -4,10 +4,14 @@ import com.stephanofer.lobbyHera.command.LobbyCommandRegistrar;
 import com.stephanofer.lobbyHera.config.PluginConfigService;
 import com.stephanofer.lobbyHera.itemjoin.ItemJoinListener;
 import com.stephanofer.lobbyHera.itemjoin.ItemJoinService;
-import com.stephanofer.lobbyHera.lobby.LobbyJoinListener;
+import com.stephanofer.lobbyHera.joinactions.JoinActionListener;
+import com.stephanofer.lobbyHera.joinactions.JoinActionService;
 import com.stephanofer.lobbyHera.lobby.LobbyLocationService;
 import com.stephanofer.lobbyHera.message.LocalizationService;
 import com.stephanofer.lobbyHera.message.MessageService;
+import com.stephanofer.lobbyHera.staff.StaffModeService;
+import com.stephanofer.lobbyHera.worldprotection.WorldProtectionListener;
+import com.stephanofer.lobbyHera.worldprotection.WorldProtectionService;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.IOException;
@@ -17,6 +21,8 @@ public final class LobbyHera extends JavaPlugin {
     private PluginConfigService configService;
     private ItemJoinService itemJoinService;
     private LobbyLocationService lobbyLocationService;
+    private StaffModeService staffModeService;
+    private WorldProtectionService worldProtectionService;
 
     @Override
     public void onEnable() {
@@ -45,17 +51,29 @@ public final class LobbyHera extends JavaPlugin {
         this.itemJoinService = new ItemJoinService(this, this.configService, localizationService, messageService);
         this.itemJoinService.load();
 
-        new LobbyCommandRegistrar(this, this.lobbyLocationService, this.itemJoinService, messageService).register();
+        this.staffModeService = new StaffModeService(this.configService, this.itemJoinService);
+        this.worldProtectionService = new WorldProtectionService(this, this.configService, this.lobbyLocationService, this.staffModeService);
+        JoinActionService joinActionService = new JoinActionService(this, this.configService, this.lobbyLocationService, this.itemJoinService, this.staffModeService);
 
-        getServer().getPluginManager().registerEvents(new LobbyJoinListener(this.lobbyLocationService), this);
-        getServer().getPluginManager().registerEvents(new ItemJoinListener(this, this.itemJoinService), this);
-        getLogger().info("Lobby + ItemJoin core loaded.");
+        new LobbyCommandRegistrar(this, this.lobbyLocationService, this.staffModeService, messageService).register();
+
+        getServer().getPluginManager().registerEvents(new JoinActionListener(joinActionService), this);
+        getServer().getPluginManager().registerEvents(new ItemJoinListener(this, this.itemJoinService, this.staffModeService), this);
+        getServer().getPluginManager().registerEvents(new WorldProtectionListener(this.worldProtectionService), this);
+        this.worldProtectionService.start();
+        getLogger().info("LobbyHera features loaded.");
     }
 
     @Override
     public void onDisable() {
         if (this.itemJoinService != null) {
             this.itemJoinService.clearRuntimeState();
+        }
+        if (this.staffModeService != null) {
+            this.staffModeService.clearAll();
+        }
+        if (this.worldProtectionService != null) {
+            this.worldProtectionService.stop();
         }
     }
 }
